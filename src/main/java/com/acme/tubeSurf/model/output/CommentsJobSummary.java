@@ -1,18 +1,26 @@
 package com.acme.tubeSurf.model.output;
 
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Document(collection = "comments_job_summary")
-public class CommentsJobSummary {
+public class CommentsJobSummary implements Serializable {
     @Id
     private String jobId;
     private String videoId;
     private int totalComments;
     private Map<String, Integer> wordCount;
     private Map<Integer, String> topRatedComments;
+    @CreatedDate
+    private LocalDateTime createdDate;
+    @LastModifiedDate
+    private LocalDateTime modifiedDate;
 
     public String getJobId() {
         return jobId;
@@ -52,5 +60,21 @@ public class CommentsJobSummary {
 
     public void setTopRatedComments(Map<Integer, String> topRatedComments) {
         this.topRatedComments = topRatedComments;
+    }
+
+    public LocalDateTime getCreatedDate() {
+        return createdDate;
+    }
+
+    public void setCreatedDate(LocalDateTime createdDate) {
+        this.createdDate = createdDate;
+    }
+
+    public LocalDateTime getModifiedDate() {
+        return modifiedDate;
+    }
+
+    public void setModifiedDate(LocalDateTime modifiedDate) {
+        this.modifiedDate = modifiedDate;
     }
 }

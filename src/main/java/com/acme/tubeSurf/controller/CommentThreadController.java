@@ -2,9 +2,12 @@ package com.acme.tubeSurf.controller;
 
 import com.acme.tubeSurf.model.operation.CommentChunkRequest;
 import com.acme.tubeSurf.model.operation.VideoCommentsRequest;
+import com.acme.tubeSurf.model.output.CommentsAnalyzeSummary;
 import com.acme.tubeSurf.services.CommentsChunkHandler;
 import com.acme.tubeSurf.services.CommentsJobProducer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,6 +64,12 @@ public class CommentThreadController {
         int commentsSyncCount = commentsChunkHandler.readAndSaveCommentChunkSync(commentChunkRequest);
 
         return "Sync Comments Count: " + commentsSyncCount + " for jobId: " + jobUid.toString();
+    }
+
+    @GetMapping("/getVideoCommentsSummary/{videoId}")
+    public CommentsAnalyzeSummary getVideoCommentsSummary(@PathVariable("videoId") String videoId){
+        System.out.println("getVideoCommentsSummary for videoId = " + videoId);
+        return commentsChunkHandler.singleChunkAnalyze(videoId, 50);
     }
 
 }
