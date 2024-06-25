@@ -3,6 +3,7 @@ package com.acme.tubeSurf.model.output;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -10,10 +11,10 @@ public class CommentsAnalyzeSummary implements Serializable {
     private String jobId;
     private String videoId;
     private int totalComments;
-    private Map<String, Integer> wordsFrequency;
+    private LinkedHashMap<String, Integer> wordsFrequency;
     private List<CommentDto> topRatedComments;
 
-    public CommentsAnalyzeSummary(String jobId, String videoId, int totalComments, Map<String, Integer> wordsFrequency, List<CommentDto> topRatedComments) {
+    public CommentsAnalyzeSummary(String jobId, String videoId, int totalComments, LinkedHashMap<String, Integer> wordsFrequency, List<CommentDto> topRatedComments) {
         this.jobId = jobId;
         this.videoId = videoId;
         this.totalComments = totalComments;
@@ -45,11 +46,11 @@ public class CommentsAnalyzeSummary implements Serializable {
         this.totalComments = totalComments;
     }
 
-    public Map<String, Integer> getWordsFrequency() {
+    public LinkedHashMap<String, Integer> getWordsFrequency() {
         return wordsFrequency;
     }
 
-    public void setWordsFrequency(Map<String, Integer> wordsFrequency) {
+    public void setWordsFrequency(LinkedHashMap<String, Integer> wordsFrequency) {
         this.wordsFrequency = wordsFrequency;
     }
 

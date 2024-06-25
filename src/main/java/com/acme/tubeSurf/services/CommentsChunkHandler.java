@@ -22,12 +22,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
@@ -67,10 +62,12 @@ public class CommentsChunkHandler {
         wordList.sort((entry1, entry2) -> entry2.getValue().compareTo(entry1.getValue()));
 
         List<Map.Entry<String, Integer>> subList = wordList.subList(0, Math.min(MAX_WORD_FREQUENCY, wordList.size()));
-        // Convert the sorted list back to a Map
-        HashMap<String, Integer> sortedLimitedWordsMap = subList.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, HashMap::new));
 
-        return new CommentsAnalyzeSummary("dummy", videoId, conciseComments.size(), sortedLimitedWordsMap, topRatedComments);
+        LinkedHashMap<String, Integer> sortedWordsList = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> entry : subList) {
+            sortedWordsList.put(entry.getKey(), entry.getValue());
+        }
+        return new CommentsAnalyzeSummary("dummy", videoId, conciseComments.size(), sortedWordsList, topRatedComments);
     }
 
     public int readAndSaveCommentChunkSync(CommentChunkRequest commentChunkRequest) {
