@@ -94,6 +94,7 @@ public class CommentsChunkHandler {
 
         List<CommentDto> topRatedComments = commentsList.stream().sorted(comparator).limit(MAX_TOP_RATED_COMMENTS).toList();
 
+
         List<Map.Entry<String, Integer>> wordList = new ArrayList<>(wordsCountMap.entrySet());
         wordList.sort((entry1, entry2) -> entry2.getValue().compareTo(entry1.getValue()));
 
