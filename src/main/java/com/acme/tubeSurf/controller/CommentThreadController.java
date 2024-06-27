@@ -72,4 +72,10 @@ public class CommentThreadController {
         return commentsChunkHandler.singleChunkAnalyze(videoId, 50);
     }
 
+    @GetMapping("/getVideoCommentsSummaryByJobId/{jobId}")
+    public CommentsAnalyzeSummary getVideoCommentsSummaryByJobId(@PathVariable("jobId") String jobId){
+        System.out.println("getVideoCommentsSummary for jobId = " + jobId);
+        return commentsChunkHandler.getCommentsSummaryForJobId(jobId);
+    }
+
 }

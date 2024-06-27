@@ -45,20 +45,56 @@ public class CommentsChunkHandler {
     private WordCountService wordCountService;
 
 
+    public CommentsAnalyzeSummary getCommentsSummaryForJobId(String jobId) {
+        Optional<CommentsJobSummary> commentsJobSummaryFromDb = commentsJobSummaryRepository.findById(jobId);
+        if (commentsJobSummaryFromDb.isEmpty()) {
+            return null;
+        } else {
+            List<ConciseComment> conciseComments = conciseCommentRepository.findConciseCommentByJobId(jobId);
+            List<CommentDto> conciseCommentsDtoList = conciseComments.stream().map(this::getCommentDtoFromConciseComment).toList();
+
+            return commentsAnalysisCalculation(jobId, commentsJobSummaryFromDb.get().getVideoId(), conciseCommentsDtoList, commentsJobSummaryFromDb.get().getWordCount());
+        }
+    }
+
     public CommentsAnalyzeSummary singleChunkAnalyze(String videoId, int commentsInPage) {
         CommentThread commentThread = callCommentThreadApi(videoId, commentsInPage, null);
+        if (commentThread == null) {
+            return null;
+        }
+
         List<Comment> comments = commentThread.getComments();
-        List<CommentDto> conciseComments = comments.stream().map(comment -> getCommentDtoFromComment(comment)).toList();
+        List<CommentDto> conciseComments = comments.stream().map(this::getCommentDtoFromComment).toList();
 
-        Comparator<CommentDto> comparator = Comparator.comparing(CommentDto::getLikeCount).reversed();
-        comparator = comparator.thenComparing(CommentDto::getPublishedAt);
-
-        List<CommentDto> topRatedComments = conciseComments.stream().sorted(comparator).limit(MAX_TOP_RATED_COMMENTS).toList();
+//        Comparator<CommentDto> comparator = Comparator.comparing(CommentDto::getLikeCount).reversed();
+//        comparator = comparator.thenComparing(CommentDto::getPublishedAt);
 
         Map<String, Integer> wordCount = new HashMap<>();
         wordCountService.wordsCount(wordCount, conciseComments.stream().map(CommentDto::getText).collect(Collectors.toList()));
 
-        List<Map.Entry<String, Integer>> wordList = new ArrayList<>(wordCount.entrySet());
+        return commentsAnalysisCalculation("dummy", videoId, conciseComments, wordCount);
+
+//        List<CommentDto> topRatedComments = conciseComments.stream().sorted(comparator).limit(MAX_TOP_RATED_COMMENTS).toList();
+//
+//        List<Map.Entry<String, Integer>> wordList = new ArrayList<>(wordCount.entrySet());
+//        wordList.sort((entry1, entry2) -> entry2.getValue().compareTo(entry1.getValue()));
+//
+//        List<Map.Entry<String, Integer>> subList = wordList.subList(0, Math.min(MAX_WORD_FREQUENCY, wordList.size()));
+//
+//        LinkedHashMap<String, Integer> sortedWordsList = new LinkedHashMap<>();
+//        for (Map.Entry<String, Integer> entry : subList) {
+//            sortedWordsList.put(entry.getKey(), entry.getValue());
+//        }
+//        return new CommentsAnalyzeSummary("dummy", videoId, conciseComments.size(), sortedWordsList, topRatedComments);
+    }
+
+    private CommentsAnalyzeSummary commentsAnalysisCalculation(String jobId, String videoId, List<CommentDto> commentsList, Map<String, Integer> wordsCountMap) {
+        Comparator<CommentDto> comparator = Comparator.comparing(CommentDto::getLikeCount).reversed();
+        comparator = comparator.thenComparing(CommentDto::getPublishedAt);
+
+        List<CommentDto> topRatedComments = commentsList.stream().sorted(comparator).limit(MAX_TOP_RATED_COMMENTS).toList();
+
+        List<Map.Entry<String, Integer>> wordList = new ArrayList<>(wordsCountMap.entrySet());
         wordList.sort((entry1, entry2) -> entry2.getValue().compareTo(entry1.getValue()));
 
         List<Map.Entry<String, Integer>> subList = wordList.subList(0, Math.min(MAX_WORD_FREQUENCY, wordList.size()));
@@ -67,7 +103,7 @@ public class CommentsChunkHandler {
         for (Map.Entry<String, Integer> entry : subList) {
             sortedWordsList.put(entry.getKey(), entry.getValue());
         }
-        return new CommentsAnalyzeSummary("dummy", videoId, conciseComments.size(), sortedWordsList, topRatedComments);
+        return new CommentsAnalyzeSummary(jobId, videoId, commentsList.size(), sortedWordsList, topRatedComments);
     }
 
     public int readAndSaveCommentChunkSync(CommentChunkRequest commentChunkRequest) {
@@ -81,7 +117,6 @@ public class CommentsChunkHandler {
 
         List<Comment> rawComments = commentThread.getComments();
 
-//        convertAndSaveComments(rawComments, commentChunkRequest.getJobId());
         List<ConciseComment> conciseCommentList = rawComments.stream().map(comment -> getConciseCommentFromComment(comment, jobId)).filter(Objects::nonNull).collect(Collectors.toList());
         conciseCommentRepository.saveAll(conciseCommentList);
 
@@ -116,22 +151,24 @@ public class CommentsChunkHandler {
         List<ConciseComment> conciseCommentList = rawComments.stream().map(comment -> getConciseCommentFromComment(comment, jobId)).filter(Objects::nonNull).collect(Collectors.toList());
         conciseCommentRepository.saveAll(conciseCommentList);
 
-        CommentsJobSummary commentsJobSummary = commentsJobSummaryRepository.findCommentsJobSummaryByJobId(commentChunkRequest.getJobId());
-        if (commentsJobSummary == null) {
+        CommentsJobSummary commentsJobSummary;
+        Map<String, Integer> wordCount = new HashMap<>();
+        Optional<CommentsJobSummary> commentsJobSummaryFromDb = commentsJobSummaryRepository.findById(commentChunkRequest.getJobId());
+        if (commentsJobSummaryFromDb.isEmpty()) {
             commentsJobSummary = new CommentsJobSummary();
             commentsJobSummary.setJobId(commentChunkRequest.getJobId());
             commentsJobSummary.setVideoId(commentChunkRequest.getVideoId());
-            commentsJobSummary.setTotalComments(0);
-            commentsJobSummary.setWordCount(new HashMap<>());
-            commentsJobSummary.setTopRatedComments(new HashMap<>());
-        }
+            commentsJobSummary.setTotalComments(conciseCommentList.size());
 
-        Map<String, Integer> wordCount = commentsJobSummary.getWordCount();
+        } else {
+            commentsJobSummary = commentsJobSummaryFromDb.get();
+            commentsJobSummary.setTotalComments(commentsJobSummary.getTotalComments() + conciseCommentList.size());
+            wordCount = commentsJobSummary.getWordCount();
+        }
 
         wordCountService.wordsCount(wordCount, conciseCommentList.stream().map(ConciseComment::getTextDisplay).collect(Collectors.toList()));
         commentsJobSummary.setWordCount(wordCount);
         commentsJobSummaryRepository.save(commentsJobSummary);
-
 
         if (commentThread.getNextPageToken() != null) {
             if (commentChunkRequest.getCommentsCurrentCount() + commentChunkRequest.getCommentsInPage() >= commentChunkRequest.getTotalCommentsRequired()) {
@@ -174,9 +211,7 @@ public class CommentsChunkHandler {
             ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
             objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-            CommentThread commentThread = objectMapper.readValue(connection.getInputStream(), CommentThread.class);
-
-            return commentThread;
+            return objectMapper.readValue(connection.getInputStream(), CommentThread.class);
 
         } catch (IOException e) {
             logger.error("Error getting comment threads for videoId: " + videoId, e);
@@ -218,6 +253,16 @@ public class CommentsChunkHandler {
                 rawComment.getOuterSnippet().getTopLevelComment().getInnerSnippet().getAuthorDisplayName(),
                 rawComment.getOuterSnippet().getTopLevelComment().getInnerSnippet().getAuthorProfileImageUrl(),
                 rawComment.getOuterSnippet().getTopLevelComment().getInnerSnippet().getPublishedAt()
+        );
+    }
+
+    private CommentDto getCommentDtoFromConciseComment(ConciseComment conciseComment) {
+        return new CommentDto(
+                conciseComment.getTextOriginal(),
+                conciseComment.getLikeCount(),
+                conciseComment.getAuthorDisplayName(),
+                conciseComment.getAuthorProfileImageUrl(),
+                conciseComment.getPublishedAt()
         );
     }
 
