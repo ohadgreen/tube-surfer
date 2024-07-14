@@ -15,6 +15,7 @@ public class CommentsJobSummary implements Serializable {
     private String jobId;
     private String videoId;
     private int totalComments;
+    private boolean isCompleted;
     private Map<String, Integer> wordCount;
     private Map<Integer, String> topRatedComments;
     @CreatedDate
@@ -44,6 +45,14 @@ public class CommentsJobSummary implements Serializable {
 
     public void setTotalComments(int totalComments) {
         this.totalComments = totalComments;
+    }
+
+    public boolean isCompleted() {
+        return isCompleted;
+    }
+
+    public void setCompleted(boolean completed) {
+        isCompleted = completed;
     }
 
     public Map<String, Integer> getWordCount() {
