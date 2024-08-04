@@ -11,12 +11,17 @@ public class CommentsAnalyzeSummary implements Serializable {
     private String jobId;
     private String videoId;
     private int totalComments;
+    private boolean isCompleted;
     private LinkedHashMap<String, Integer> wordsFrequency;
     private List<CommentDto> topRatedComments;
 
-    public CommentsAnalyzeSummary(String jobId, String videoId, int totalComments, LinkedHashMap<String, Integer> wordsFrequency, List<CommentDto> topRatedComments) {
+    public CommentsAnalyzeSummary() {
+    }
+
+    public CommentsAnalyzeSummary(String jobId, String videoId, boolean isCompleted, int totalComments, LinkedHashMap<String, Integer> wordsFrequency, List<CommentDto> topRatedComments) {
         this.jobId = jobId;
         this.videoId = videoId;
+        this.isCompleted = isCompleted;
         this.totalComments = totalComments;
         this.wordsFrequency = wordsFrequency;
         this.topRatedComments = topRatedComments;
@@ -60,5 +65,13 @@ public class CommentsAnalyzeSummary implements Serializable {
 
     public void setTopRatedComments(List<CommentDto> topRatedComments) {
         this.topRatedComments = topRatedComments;
+    }
+
+    public boolean isCompleted() {
+        return isCompleted;
+    }
+
+    public void setCompleted(boolean completed) {
+        isCompleted = completed;
     }
 }

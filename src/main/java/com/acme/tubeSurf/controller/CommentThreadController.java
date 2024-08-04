@@ -1,6 +1,7 @@
 package com.acme.tubeSurf.controller;
 
 import com.acme.tubeSurf.model.operation.CommentChunkRequest;
+import com.acme.tubeSurf.model.operation.JobIdResponse;
 import com.acme.tubeSurf.model.operation.VideoCommentsRequest;
 import com.acme.tubeSurf.model.output.CommentsAnalyzeSummary;
 import com.acme.tubeSurf.services.CommentsChunkHandler;
@@ -19,8 +20,6 @@ import java.util.UUID;
 @RequestMapping("/api/comments")
 public class CommentThreadController {
 
-//    @Autowired
-//    private CommentThreadService commentThreadService;
     @Autowired
     private CommentsChunkHandler commentsChunkHandler;
     @Autowired
@@ -41,12 +40,12 @@ public class CommentThreadController {
 //    }
 
     @PostMapping("/commentThread/bq")
-    public String handleCommentThreadForVideoWithQueue(@RequestBody VideoCommentsRequest videoCommentsRequest) {
+    public JobIdResponse handleCommentThreadForVideoWithQueue(@RequestBody VideoCommentsRequest videoCommentsRequest) {
         UUID jobUid = UUID.randomUUID();
         videoCommentsRequest.setJobId(jobUid.toString());
         System.out.println("Received Video Comments Req for videoId = " + videoCommentsRequest.getVideoId() + " count: " + videoCommentsRequest.getTotalCommentsRequired() + " jobId: " + videoCommentsRequest.getJobId());
         commentsJobProducer.initVideoCommentsJob(videoCommentsRequest);
-        return jobUid.toString();
+        return new JobIdResponse(jobUid.toString());
     }
 
     @PostMapping("/syncChunkHandle")
@@ -76,7 +75,9 @@ public class CommentThreadController {
     @GetMapping("/getVideoCommentsSummaryByJobId/{jobId}")
     public CommentsAnalyzeSummary getVideoCommentsSummaryByJobId(@PathVariable("jobId") String jobId){
         System.out.println("getVideoCommentsSummary for jobId = " + jobId);
-        return commentsChunkHandler.getCommentsSummaryForJobId(jobId);
+        CommentsAnalyzeSummary commentsSummaryForJobId = commentsChunkHandler.getCommentsSummaryForJobId(jobId);
+        System.out.println("Comments Summary for jobId: " + jobId + " total comments: " + commentsSummaryForJobId.getTotalComments());
+        return commentsSummaryForJobId;
     }
 
 }

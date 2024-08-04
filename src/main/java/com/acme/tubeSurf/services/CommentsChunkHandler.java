@@ -48,12 +48,12 @@ public class CommentsChunkHandler {
     public CommentsAnalyzeSummary getCommentsSummaryForJobId(String jobId) {
         Optional<CommentsJobSummary> commentsJobSummaryFromDb = commentsJobSummaryRepository.findById(jobId);
         if (commentsJobSummaryFromDb.isEmpty()) {
-            return null;
+            return new CommentsAnalyzeSummary();
         } else {
             List<ConciseComment> conciseComments = conciseCommentRepository.findConciseCommentByJobId(jobId);
             List<CommentDto> conciseCommentsDtoList = conciseComments.stream().map(this::getCommentDtoFromConciseComment).toList();
 
-            return commentsAnalysisCalculation(jobId, commentsJobSummaryFromDb.get().getVideoId(), conciseCommentsDtoList, commentsJobSummaryFromDb.get().getWordCount());
+            return commentsAnalysisCalculation(jobId, commentsJobSummaryFromDb.get().getVideoId(), commentsJobSummaryFromDb.get().isCompleted(), conciseCommentsDtoList, commentsJobSummaryFromDb.get().getWordCount());
         }
     }
 
@@ -69,10 +69,10 @@ public class CommentsChunkHandler {
         Map<String, Integer> wordCount = new HashMap<>();
         wordCountService.wordsCount(wordCount, conciseComments.stream().map(CommentDto::getText).collect(Collectors.toList()));
 
-        return commentsAnalysisCalculation("dummy", videoId, conciseComments, wordCount);
+        return commentsAnalysisCalculation("dummy", videoId, true, conciseComments, wordCount);
     }
 
-    private CommentsAnalyzeSummary commentsAnalysisCalculation(String jobId, String videoId, List<CommentDto> commentsList, Map<String, Integer> wordsCountMap) {
+    private CommentsAnalyzeSummary commentsAnalysisCalculation(String jobId, String videoId, boolean isCompleted, List<CommentDto> commentsList, Map<String, Integer> wordsCountMap) {
         Comparator<CommentDto> comparator = Comparator.comparing(CommentDto::getLikeCount).reversed();
         comparator = comparator.thenComparing(CommentDto::getPublishedAt);
 
@@ -88,7 +88,7 @@ public class CommentsChunkHandler {
         for (Map.Entry<String, Integer> entry : subList) {
             sortedWordsList.put(entry.getKey(), entry.getValue());
         }
-        return new CommentsAnalyzeSummary(jobId, videoId, commentsList.size(), sortedWordsList, topRatedComments);
+        return new CommentsAnalyzeSummary(jobId, videoId, isCompleted, commentsList.size(), sortedWordsList, topRatedComments);
     }
 
     public int readAndSaveCommentChunkSync(CommentChunkRequest commentChunkRequest) {
@@ -118,8 +118,6 @@ public class CommentsChunkHandler {
 
         return rawComments.size();
     }
-
-//    public
 
     public void receiveCommentChunk(CommentChunkRequest commentChunkRequest) {
         String jobId = commentChunkRequest.getJobId();
@@ -157,29 +155,23 @@ public class CommentsChunkHandler {
         wordCountService.wordsCount(wordCount, conciseCommentList.stream().map(ConciseComment::getTextDisplay).collect(Collectors.toList()));
         commentsJobSummary.setWordCount(wordCount);
 
+        boolean isJobCompleted = currentCommentCount >= commentChunkRequest.getTotalCommentsRequired();
+        commentsJobSummary.setCompleted(isJobCompleted);
+
         commentsJobSummaryRepository.save(commentsJobSummary);
 
-        if (currentCommentCount >= commentChunkRequest.getTotalCommentsRequired()) {
-            commentsJobSummary.setCompleted(true);
-            logger.info("Job completed for videoId: {} with jobId: {} commentsCurrentCount: {} commentsInPage: {} totalCommentsRequired: {}", commentChunkRequest.getVideoId(), jobId, commentChunkRequest.getCommentsCurrentCount(), commentChunkRequest.getCommentsInPage(), commentChunkRequest.getTotalCommentsRequired());
+        if (!isJobCompleted && commentThread.getNextPageToken() != null) {
+            CommentChunkRequest nextPageRequest = new CommentChunkRequest(
+                    commentChunkRequest.getJobId(),
+                    commentChunkRequest.getVideoId(),
+                    commentThread.getNextPageToken(),
+                    commentChunkRequest.getCommentsInPage(),
+                    commentChunkRequest.getTotalCommentsRequired(),
+                    currentCommentCount);
+
+            urlQueue.add(nextPageRequest);
         } else {
-            if (commentThread.getNextPageToken() != null) {
-                CommentChunkRequest nextPageRequest = new CommentChunkRequest(
-                        commentChunkRequest.getJobId(),
-                        commentChunkRequest.getVideoId(),
-                        commentThread.getNextPageToken(),
-                        commentChunkRequest.getCommentsInPage(),
-                        commentChunkRequest.getTotalCommentsRequired(),
-                        currentCommentCount);
-
-                urlQueue.add(nextPageRequest);
-
-                commentsJobSummary.setCompleted(false);
-            } else {
-                commentsJobSummary.setCompleted(true);
-                logger.info("Job completed for videoId: {} with jobId: {} commentsCurrentCount: {} commentsInPage: {} totalCommentsRequired: {}", commentChunkRequest.getVideoId(), jobId, commentChunkRequest.getCommentsCurrentCount(), commentChunkRequest.getCommentsInPage(), commentChunkRequest.getTotalCommentsRequired());
-            }
-
+            logger.info("Job completed for jobId: {} with videoId: {} totalCommentsRequired: {}", jobId, commentChunkRequest.getVideoId(), commentChunkRequest.getTotalCommentsRequired());
         }
 
         try {
